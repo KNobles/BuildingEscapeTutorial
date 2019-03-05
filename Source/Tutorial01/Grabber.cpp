@@ -27,22 +27,48 @@ void UGrabber::BeginPlay()
 void UGrabber::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
-	
+	// Get player viewpoint
+	FVector PlayerViewPointLocation;
+	FRotator PlayerViewPointRotation;
+
+
+	GetWorld()->GetFirstPlayerController()->GetPlayerViewPoint(
+		OUT PlayerViewPointLocation,
+		OUT PlayerViewPointRotation
+	);
+
+
+	FVector LineTraceEnd = PlayerViewPointLocation + PlayerViewPointRotation.Vector() * Reach;
+	if (PhysicsHandle->GrabbedComponent)
+	{
+		PhysicsHandle->SetTargetLocation(LineTraceEnd);
+	}
 }
 
 void UGrabber::Grab()
 {
 	UE_LOG(LogTemp, Warning, TEXT("Grab pressed"));
 
-	GetFirstPhysicsBodyInReach();
 	/// Try and reach any actors with physics body collision channel set
+	auto HitResult = GetFirstPhysicsBodyInReach();
+	auto ComponentToGrab = HitResult.GetComponent();
+	auto ActorHit = HitResult.GetActor();
 	/// If we hit something then attach a physics handle
+	if (ActorHit)
+	{
+		PhysicsHandle->GrabComponent(
+			ComponentToGrab,
+			NAME_None,
+			ComponentToGrab->GetOwner()->GetActorLocation(),
+			true // Allow rotation
+		);
+	}
 }
 
 void UGrabber::Release()
 {
 	UE_LOG(LogTemp, Warning, TEXT("Grab released"));
-
+	PhysicsHandle->ReleaseComponent();
 }
 
 void UGrabber::FindPhysicsHandleComponent()
@@ -92,7 +118,7 @@ FHitResult UGrabber::GetFirstPhysicsBodyInReach() const
 
 
 	FVector LineTraceEnd = PlayerViewPointLocation + PlayerViewPointRotation.Vector() * Reach;
-
+	/*
 	DrawDebugLine(
 		GetWorld(),
 		PlayerViewPointLocation,
@@ -103,6 +129,7 @@ FHitResult UGrabber::GetFirstPhysicsBodyInReach() const
 		0.f,
 		10.f
 	);
+	*/
 
 	//UE_LOG(LogTemp, Warning, TEXT("Location %s, Rotation %s"), *PlayerViewPointLocation.ToString(), *PlayerViewPointRotation.ToString());
 	FCollisionQueryParams TraceParameters(FName(TEXT("")), false, GetOwner());
@@ -122,6 +149,7 @@ FHitResult UGrabber::GetFirstPhysicsBodyInReach() const
 	{
 		UE_LOG(LogTemp, Warning, TEXT("Line trace hit: %s"), *(ActorHit->GetName()));
 	}
+
 
 	return Hit;
 }
